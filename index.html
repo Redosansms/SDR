@@ -3,154 +3,248 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Statistiques Discord</title>
+    <title>Statistiques Discord en Temps Réel</title>
     <style>
+        :root {
+            --discord-dark: #36393f;
+            --discord-darker: #2f3136;
+            --discord-gray: #40444b;
+            --discord-blue: #7289da;
+            --discord-green: #43b581;
+            --discord-yellow: #faa61a;
+            --discord-red: #f04747;
+        }
+        
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #36393f;
+            font-family: 'Whitney', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--discord-dark);
             color: white;
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
         }
+        
         .container {
             max-width: 800px;
             margin: 0 auto;
-            background-color: #2f3136;
+            background-color: var(--discord-darker);
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
+        
         h1 {
             text-align: center;
-            color: #7289da;
+            color: var(--discord-blue);
             margin-bottom: 30px;
+            font-weight: 700;
         }
+        
         .user-card {
-            background-color: #40444b;
+            background-color: var(--discord-gray);
             border-radius: 6px;
             padding: 15px;
-            margin: 10px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: transform 0.2s;
-        }
-        .user-card:hover {
-            transform: translateY(-3px);
-            background-color: #484c52;
-        }
-        .user-rank {
-            font-weight: bold;
-            color: #7289da;
-            min-width: 30px;
-        }
-        .user-name {
-            flex-grow: 1;
-            margin: 0 15px;
-        }
-        .user-stats {
-            display: flex;
+            margin: 12px 0;
+            display: grid;
+            grid-template-columns: 50px 1fr auto auto;
             gap: 15px;
+            align-items: center;
+            transition: all 0.2s ease;
         }
-        .xp {
-            color: #43b581;
-            font-weight: bold;
+        
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
-        .messages {
-            color: #faa61a;
+        
+        .user-rank {
+            font-weight: 800;
+            color: var(--discord-blue);
+            text-align: center;
+            font-size: 1.1em;
         }
+        
+        .user-name {
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .user-xp {
+            color: var(--discord-green);
+            font-weight: 600;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .user-messages {
+            color: var(--discord-yellow);
+            min-width: 100px;
+            text-align: right;
+        }
+        
         .loading {
             text-align: center;
-            font-style: italic;
+            padding: 30px;
             color: #b9bbbe;
+            font-style: italic;
         }
+        
         .error {
-            color: #f04747;
-            text-align: center;
-            padding: 20px;
             background-color: rgba(240, 71, 71, 0.1);
             border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            color: var(--discord-red);
+            margin: 20px 0;
+        }
+        
+        .header {
+            display: grid;
+            grid-template-columns: 50px 1fr auto auto;
+            gap: 15px;
+            padding: 10px 15px;
+            font-weight: 600;
+            color: var(--discord-blue);
+            border-bottom: 1px solid var(--discord-gray);
+            margin-bottom: 10px;
+        }
+        
+        .last-update {
+            text-align: right;
+            font-size: 0.8em;
+            color: #b9bbbe;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .user-card, .header {
+                grid-template-columns: 30px 1fr auto;
+            }
+            .user-messages {
+                display: none;
+            }
+            .header-messages {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🏆 Classement des Membres</h1>
-        <div id="leaderboard">
-            <p class="loading">Chargement en cours...</p>
+        
+        <div class="header">
+            <div>#</div>
+            <div>Membre</div>
+            <div class="user-xp">XP</div>
+            <div class="header-messages">Messages</div>
         </div>
+        
+        <div id="leaderboard">
+            <p class="loading">Chargement des données en cours...</p>
+        </div>
+        
+        <div class="last-update" id="lastUpdate"></div>
     </div>
 
     <script>
         // Configuration
-        const DATA_URL = 'https://raw.githubusercontent.com/Redosansms/SDR/main/data.json';
+        const API_URL = "http://localhost:5000/api/data";
+        const UPDATE_INTERVAL = 5000; // 5 secondes
         
-        // Chargement des données
-        async function loadData() {
-            const leaderboard = document.getElementById("leaderboard");
-            
+        // Éléments DOM
+        const leaderboard = document.getElementById("leaderboard");
+        const lastUpdateEl = document.getElementById("lastUpdate");
+        
+        // Formatage de la date
+        function formatDate(date) {
+            return new Date(date).toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+        
+        // Récupération des données
+        async function fetchData() {
             try {
-                console.log("🔄 Chargement des données depuis:", DATA_URL);
-                const response = await fetch(DATA_URL);
+                const response = await fetch(API_URL);
                 
                 if (!response.ok) {
                     throw new Error(`Erreur HTTP ${response.status}`);
                 }
                 
                 const data = await response.json();
-                console.log("📊 Données reçues:", data);
                 
                 if (!data || !data.users) {
-                    throw new Error("Format de données invalide - 'users' manquant");
+                    throw new Error("Format de données invalide");
                 }
                 
-                displayLeaderboard(data.users);
-                
+                return {
+                    success: true,
+                    data: data,
+                    timestamp: new Date()
+                };
             } catch (error) {
-                console.error("❌ Erreur:", error);
-                showError(`Erreur de chargement: ${error.message}`);
+                console.error("Erreur:", error);
+                return {
+                    success: false,
+                    error: error.message
+                };
             }
         }
-
-        // Affichage du classement
-        function displayLeaderboard(users) {
-            const leaderboard = document.getElementById("leaderboard");
-            
+        
+        // Affichage des données
+        function displayData(users) {
             if (!users || Object.keys(users).length === 0) {
                 leaderboard.innerHTML = '<p class="error">Aucune donnée disponible</p>';
                 return;
             }
             
-            // Conversion en tableau et tri
-            const usersArray = Object.values(users);
-            usersArray.sort((a, b) => b.xp - a.xp);
+            const usersArray = Object.values(users)
+                .sort((a, b) => b.xp - a.xp);
             
-            // Génération du HTML
             leaderboard.innerHTML = usersArray.map((user, index) => `
                 <div class="user-card">
-                    <div class="user-rank">${index + 1}.</div>
-                    <div class="user-name">${user.username || 'Utilisateur inconnu'}</div>
-                    <div class="user-stats">
-                        <span class="xp">${user.xp || 0} XP</span>
-                        <span class="messages">${user.messages || 0} messages</span>
-                    </div>
+                    <div class="user-rank">${index + 1}</div>
+                    <div class="user-name" title="${user.username}">${user.username}</div>
+                    <div class="user-xp">${user.xp.toLocaleString()} XP</div>
+                    <div class="user-messages">${user.messages.toLocaleString()} messages</div>
                 </div>
             `).join("");
         }
-
+        
         // Affichage des erreurs
-        function showError(message) {
-            document.getElementById("leaderboard").innerHTML = `
+        function displayError(message) {
+            leaderboard.innerHTML = `
                 <div class="error">
-                    <h3>⚠️ Erreur</h3>
+                    <h3>⚠️ Erreur de chargement</h3>
                     <p>${message}</p>
-                    <small>Vérifiez la console (F12) pour plus de détails</small>
+                    <small>Nouvelle tentative dans 5 secondes...</small>
                 </div>
             `;
         }
-
-        // Lancement au chargement de la page
-        document.addEventListener('DOMContentLoaded', loadData);
+        
+        // Mise à jour de l'interface
+        async function updateInterface() {
+            const result = await fetchData();
+            
+            if (result.success) {
+                displayData(result.data.users);
+                lastUpdateEl.textContent = `Dernière mise à jour : ${formatDate(result.timestamp)}`;
+            } else {
+                displayError(result.error);
+            }
+        }
+        
+        // Actualisation automatique
+        updateInterface();
+        setInterval(updateInterface, UPDATE_INTERVAL);
     </script>
 </body>
 </html>
