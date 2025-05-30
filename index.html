@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Statistiques Discord</title>
+    <title>Statistiques Discord en Temps Réel</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -30,117 +30,163 @@
             border-radius: 6px;
             padding: 15px;
             margin: 10px 0;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 50px 1fr auto auto;
+            gap: 15px;
             align-items: center;
-            transition: transform 0.2s;
+            transition: all 0.2s ease;
         }
         .user-card:hover {
-            transform: translateY(-3px);
-            background-color: #484c52;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         .user-rank {
-            font-weight: bold;
+            font-weight: 800;
             color: #7289da;
-            min-width: 30px;
+            text-align: center;
+            font-size: 1.1em;
         }
         .user-name {
-            flex-grow: 1;
-            margin: 0 15px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .user-stats {
-            display: flex;
-            gap: 15px;
-        }
-        .xp {
+        .user-xp {
             color: #43b581;
-            font-weight: bold;
+            font-weight: 600;
+            min-width: 80px;
+            text-align: right;
         }
-        .messages {
+        .user-messages {
             color: #faa61a;
+            min-width: 100px;
+            text-align: right;
         }
         .loading {
             text-align: center;
-            font-style: italic;
+            padding: 30px;
             color: #b9bbbe;
+            font-style: italic;
         }
         .error {
-            color: #f04747;
-            text-align: center;
-            padding: 20px;
             background-color: rgba(240, 71, 71, 0.1);
             border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            color: #f04747;
+            margin: 20px 0;
+        }
+        .header {
+            display: grid;
+            grid-template-columns: 50px 1fr auto auto;
+            gap: 15px;
+            padding: 10px 15px;
+            font-weight: 600;
+            color: #7289da;
+            border-bottom: 1px solid #40444b;
+            margin-bottom: 10px;
+        }
+        .last-update {
+            text-align: right;
+            font-size: 0.8em;
+            color: #b9bbbe;
+            margin-top: 20px;
+        }
+        @media (max-width: 600px) {
+            .user-card, .header {
+                grid-template-columns: 30px 1fr auto;
+            }
+            .user-messages {
+                display: none;
+            }
+            .header-messages {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏆 Classement des Membres</h1>
-        <div id="leaderboard">
-            <p class="loading">Chargement en cours...</p>
+        <h1>🏆 Classement des Membres (Temps Réel)</h1>
+        
+        <div class="header">
+            <div>#</div>
+            <div>Membre</div>
+            <div class="user-xp">XP</div>
+            <div class="header-messages">Messages</div>
         </div>
+        
+        <div id="leaderboard">
+            <p class="loading">Connexion au flux temps réel...</p>
+        </div>
+        
+        <div class="last-update" id="lastUpdate"></div>
     </div>
 
     <script>
         // Configuration
         const DATA_URL = 'https://raw.githubusercontent.com/Redosansms/SDR/main/data.json';
+        const SERVER_URL = 'http://127.0.0.1:5001';
+        let usersData = {};
         
-        // Chargement des données
-        async function loadData() {
-            const leaderboard = document.getElementById("leaderboard");
-            
-            try {
-                console.log("🔄 Chargement des données depuis:", DATA_URL);
-                const response = await fetch(DATA_URL);
-                
-                if (!response.ok) {
-                    throw new Error(`Erreur HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log("📊 Données reçues:", data);
-                
-                if (!data || !data.users) {
-                    throw new Error("Format de données invalide - 'users' manquant");
-                }
-                
-                displayLeaderboard(data.users);
-                
-            } catch (error) {
-                console.error("❌ Erreur:", error);
-                showError(`Erreur de chargement: ${error.message}`);
-            }
+        // Éléments DOM
+        const leaderboard = document.getElementById("leaderboard");
+        const lastUpdateEl = document.getElementById("lastUpdate");
+
+        // Formatage de la date
+        function formatDate(date) {
+            return new Date(date).toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
 
-        // Affichage du classement
-        function displayLeaderboard(users) {
-            const leaderboard = document.getElementById("leaderboard");
-            
-            if (!users || Object.keys(users).length === 0) {
-                leaderboard.innerHTML = '<p class="error">Aucune donnée disponible</p>';
+        // Affichage des données
+        function displayData(users) {
+            if (!users || typeof users !== 'object') {
+                leaderboard.innerHTML = '<p class="error">Aucune donnée valide disponible</p>';
                 return;
             }
             
-            // Conversion en tableau et tri
-            const usersArray = Object.values(users);
-            usersArray.sort((a, b) => b.xp - a.xp);
+            const usersArray = Object.values(users)
+                .sort((a, b) => (b.xp || 0) - (a.xp || 0));
             
-            // Génération du HTML
             leaderboard.innerHTML = usersArray.map((user, index) => `
-                <div class="user-card">
-                    <div class="user-rank">${index + 1}.</div>
-                    <div class="user-name">${user.username || 'Utilisateur inconnu'}</div>
-                    <div class="user-stats">
-                        <span class="xp">${user.xp || 0} XP</span>
-                        <span class="messages">${user.messages || 0} messages</span>
-                    </div>
+                <div class="user-card" data-user-id="${user.id || index}">
+                    <div class="user-rank">${index + 1}</div>
+                    <div class="user-name" title="${user.username}">${user.username || 'Inconnu'}</div>
+                    <div class="user-xp">${user.xp || 0} XP</div>
+                    <div class="user-messages">${user.messages || 0} messages</div>
                 </div>
             `).join("");
+            
+            lastUpdateEl.textContent = `Dernière mise à jour : ${formatDate(new Date())}`;
+        }
+
+        // Mise à jour individuelle
+        function updateUser(userData) {
+            const userElement = document.querySelector(`[data-user-id="${userData.id}"]`);
+            
+            if (userElement) {
+                // Mise à jour de l'utilisateur existant
+                userElement.querySelector('.user-xp').textContent = `${userData.xp} XP`;
+                userElement.querySelector('.user-messages').textContent = `${userData.messages} messages`;
+            } else {
+                // Ajout d'un nouvel utilisateur
+                usersData[userData.id] = userData;
+                displayData(usersData);
+            }
+            
+            lastUpdateEl.textContent = `Dernière mise à jour : ${formatDate(new Date())}`;
         }
 
         // Affichage des erreurs
         function showError(message) {
-            document.getElementById("leaderboard").innerHTML = `
+            leaderboard.innerHTML = `
                 <div class="error">
                     <h3>⚠️ Erreur</h3>
                     <p>${message}</p>
@@ -149,8 +195,51 @@
             `;
         }
 
+        // Connexion au serveur temps réel
+        function connectToServer() {
+            const eventSource = new EventSource(`${SERVER_URL}/stream`);
+            
+            eventSource.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.id) {
+                        updateUser(data);
+                    } else {
+                        console.log("Mise à jour complète reçue");
+                        usersData = data;
+                        displayData(usersData);
+                    }
+                } catch (error) {
+                    console.error("Erreur de parsing SSE:", error);
+                }
+            };
+            
+            eventSource.onerror = () => {
+                console.log("Erreur de connexion SSE, tentative de reconnexion...");
+                setTimeout(connectToServer, 5000);
+            };
+        }
+
+        // Chargement initial
+        async function loadInitialData() {
+            try {
+                const response = await fetch(DATA_URL);
+                const data = await response.json();
+                
+                if (data && data.users) {
+                    usersData = data.users;
+                    displayData(usersData);
+                }
+            } catch (error) {
+                console.error("Erreur chargement initial:", error);
+            }
+            
+            // Lance la connexion temps réel
+            connectToServer();
+        }
+
         // Lancement au chargement de la page
-        document.addEventListener('DOMContentLoaded', loadData);
+        document.addEventListener('DOMContentLoaded', loadInitialData);
     </script>
 </body>
 </html>
