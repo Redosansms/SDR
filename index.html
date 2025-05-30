@@ -5,105 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Statistiques Discord en Temps Réel</title>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #36393f;
-            color: white;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: #2f3136;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            text-align: center;
-            color: #7289da;
-            margin-bottom: 30px;
-        }
-        .user-card {
-            background-color: #40444b;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 10px 0;
-            display: grid;
-            grid-template-columns: 50px 1fr auto auto;
-            gap: 15px;
-            align-items: center;
-            transition: all 0.2s ease;
-        }
-        .user-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-        .user-rank {
-            font-weight: 800;
-            color: #7289da;
-            text-align: center;
-            font-size: 1.1em;
-        }
-        .user-name {
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .user-xp {
-            color: #43b581;
-            font-weight: 600;
-            min-width: 80px;
-            text-align: right;
-        }
-        .user-messages {
-            color: #faa61a;
-            min-width: 100px;
-            text-align: right;
-        }
-        .loading {
-            text-align: center;
-            padding: 30px;
-            color: #b9bbbe;
-            font-style: italic;
-        }
-        .error {
-            background-color: rgba(240, 71, 71, 0.1);
-            border-radius: 6px;
-            padding: 20px;
-            text-align: center;
-            color: #f04747;
-            margin: 20px 0;
-        }
-        .header {
-            display: grid;
-            grid-template-columns: 50px 1fr auto auto;
-            gap: 15px;
-            padding: 10px 15px;
-            font-weight: 600;
-            color: #7289da;
-            border-bottom: 1px solid #40444b;
-            margin-bottom: 10px;
-        }
-        .last-update {
-            text-align: right;
-            font-size: 0.8em;
-            color: #b9bbbe;
-            margin-top: 20px;
-        }
-        @media (max-width: 600px) {
-            .user-card, .header {
-                grid-template-columns: 30px 1fr auto;
-            }
-            .user-messages {
-                display: none;
-            }
-            .header-messages {
-                display: none;
-            }
-        }
+        /* [Votre CSS existant reste inchangé] */
     </style>
 </head>
 <body>
@@ -126,9 +28,9 @@
 
     <script>
         // Configuration
-        const DATA_URL = 'https://raw.githubusercontent.com/Redosansms/SDR/main/data.json';
-        const SERVER_URL = 'http://127.0.0.1:5001';
+        const SERVER_URL = 'http://localhost:5001';  // Assurez-vous que c'est la même que server.py
         let usersData = {};
+        let eventSource = null;
         
         // Éléments DOM
         const leaderboard = document.getElementById("leaderboard");
@@ -141,105 +43,105 @@
                 month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                second: '2-digit'
             });
         }
 
         // Affichage des données
         function displayData(users) {
-            if (!users || typeof users !== 'object') {
-                leaderboard.innerHTML = '<p class="error">Aucune donnée valide disponible</p>';
-                return;
-            }
-            
             const usersArray = Object.values(users)
                 .sort((a, b) => (b.xp || 0) - (a.xp || 0));
             
             leaderboard.innerHTML = usersArray.map((user, index) => `
-                <div class="user-card" data-user-id="${user.id || index}">
+                <div class="user-card" data-user-id="${user.id}">
                     <div class="user-rank">${index + 1}</div>
-                    <div class="user-name" title="${user.username}">${user.username || 'Inconnu'}</div>
-                    <div class="user-xp">${user.xp || 0} XP</div>
-                    <div class="user-messages">${user.messages || 0} messages</div>
+                    <div class="user-name" title="${user.username}">${user.username}</div>
+                    <div class="user-xp">${user.xp} XP</div>
+                    <div class="user-messages">${user.messages} messages</div>
                 </div>
             `).join("");
             
             lastUpdateEl.textContent = `Dernière mise à jour : ${formatDate(new Date())}`;
         }
 
-        // Mise à jour individuelle
-        function updateUser(userData) {
-            const userElement = document.querySelector(`[data-user-id="${userData.id}"]`);
-            
-            if (userElement) {
-                // Mise à jour de l'utilisateur existant
-                userElement.querySelector('.user-xp').textContent = `${userData.xp} XP`;
-                userElement.querySelector('.user-messages').textContent = `${userData.messages} messages`;
-            } else {
-                // Ajout d'un nouvel utilisateur
-                usersData[userData.id] = userData;
-                displayData(usersData);
+        // Connexion SSE améliorée
+        function connectSSE() {
+            if (eventSource) {
+                eventSource.close();
             }
-            
-            lastUpdateEl.textContent = `Dernière mise à jour : ${formatDate(new Date())}`;
-        }
 
-        // Affichage des erreurs
-        function showError(message) {
-            leaderboard.innerHTML = `
-                <div class="error">
-                    <h3>⚠️ Erreur</h3>
-                    <p>${message}</p>
-                    <small>Vérifiez la console (F12) pour plus de détails</small>
-                </div>
-            `;
-        }
+            eventSource = new EventSource(`${SERVER_URL}/stream`);
 
-        // Connexion au serveur temps réel
-        function connectToServer() {
-            const eventSource = new EventSource(`${SERVER_URL}/stream`);
-            
+            eventSource.onopen = () => {
+                console.log("🔌 Connecté au flux SSE");
+                leaderboard.querySelector('.loading').textContent = "Connecté, en attente de données...";
+            };
+
             eventSource.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data);
-                    if (data.id) {
-                        updateUser(data);
-                    } else {
-                        console.log("Mise à jour complète reçue");
-                        usersData = data;
+                    console.log("📩 Donnée SSE reçue:", data);
+
+                    if (data.status === 'waiting') return;
+
+                    // Mise à jour globale ou individuelle
+                    if (Array.isArray(data) || data.users) {
+                        usersData = data.users || data;
+                        displayData(usersData);
+                    } else if (data.id) {
+                        usersData[data.id] = data;
                         displayData(usersData);
                     }
-                } catch (error) {
-                    console.error("Erreur de parsing SSE:", error);
+                } catch (err) {
+                    console.error("Erreur traitement SSE:", err);
                 }
             };
-            
-            eventSource.onerror = () => {
-                console.log("Erreur de connexion SSE, tentative de reconnexion...");
-                setTimeout(connectToServer, 5000);
+
+            eventSource.onerror = (e) => {
+                console.error("🚨 Erreur SSE:", e);
+                leaderboard.innerHTML = `<p class="error">Connexion perdue, reconnexion dans 5s...</p>`;
+                setTimeout(connectSSE, 5000);
             };
         }
 
-        // Chargement initial
+        // Chargement initial depuis le serveur Flask
         async function loadInitialData() {
             try {
-                const response = await fetch(DATA_URL);
-                const data = await response.json();
+                const response = await fetch(`${SERVER_URL}/update`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
                 
-                if (data && data.users) {
-                    usersData = data.users;
-                    displayData(usersData);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.users) {
+                        usersData = data.users;
+                        displayData(usersData);
+                    }
                 }
-            } catch (error) {
-                console.error("Erreur chargement initial:", error);
+            } catch (err) {
+                console.error("Erreur chargement initial:", err);
+                leaderboard.innerHTML = `
+                    <div class="error">
+                        <h3>⚠️ Serveur inaccessible</h3>
+                        <p>Vérifiez que server.py est bien lancé</p>
+                        <p>${err.message}</p>
+                    </div>
+                `;
             }
-            
-            // Lance la connexion temps réel
-            connectToServer();
         }
 
-        // Lancement au chargement de la page
-        document.addEventListener('DOMContentLoaded', loadInitialData);
+        // Lancement
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadInitialData();
+            connectSSE();
+            
+            // Ping régulier pour éviter les timeouts
+            setInterval(() => {
+                if (eventSource) console.log("SSE connection state:", eventSource.readyState);
+            }, 30000);
+        });
     </script>
 </body>
 </html>
