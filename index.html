@@ -83,7 +83,7 @@
 
     <script>
         // Configuration
-        const DATA_URL = 'https://raw.githubusercontent.com/Redosansms/SDR/main/data.json'; // À MODIFIER
+        const DATA_URL = 'https://raw.githubusercontent.com/Redosansms/SDR/main/data.json';
         
         // Chargement des données
         async function loadData() {
@@ -114,30 +114,19 @@
 
         // Affichage du classement
         function displayLeaderboard(users) {
-    const leaderboard = document.getElementById("leaderboard");
-    
-    if (!users || Object.keys(users).length === 0) {
-        leaderboard.innerHTML = '<p class="error">Aucune donnée disponible</p>';
-        return;
-    }
-    
-    // Conversion en tableau et tri
-    const usersArray = Object.values(users);
-    usersArray.sort((a, b) => b.xp - a.xp);
-    
-    // Génération du HTML
-    leaderboard.innerHTML = usersArray.map((user, index) => `
-        <div class="user-card">
-            <span>${index + 1}. ${user.username || 'Inconnu'}</span>
-            <div>
-                <span class="xp">${user.xp || 0} XP</span> | 
-                <span class="messages">${user.messages || 0} messages</span>
-            </div>
-        </div>
-    `).join("");
-}
+            const leaderboard = document.getElementById("leaderboard");
             
-            leaderboard.innerHTML = sortedUsers.map(([id, user], index) => `
+            if (!users || Object.keys(users).length === 0) {
+                leaderboard.innerHTML = '<p class="error">Aucune donnée disponible</p>';
+                return;
+            }
+            
+            // Conversion en tableau et tri
+            const usersArray = Object.values(users);
+            usersArray.sort((a, b) => b.xp - a.xp);
+            
+            // Génération du HTML
+            leaderboard.innerHTML = usersArray.map((user, index) => `
                 <div class="user-card">
                     <div class="user-rank">${index + 1}.</div>
                     <div class="user-name">${user.username || 'Utilisateur inconnu'}</div>
