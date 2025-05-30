@@ -1,7 +1,25 @@
 {
   "users": {
     "123456789": {
-      "username": "User#1234",
+      "username": "Redhos",
+      "xp": 15,
+      "messages": 20
+    }
+  }
+}
+{
+  "users": {
+    "123456789": {
+      "username": "Modrex",
+      "xp": 15,
+      "messages": 20
+    }
+  }
+}
+{
+  "users": {
+    "123456789": {
+      "username": "Sxidox",
       "xp": 15,
       "messages": 20
     }
