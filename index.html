@@ -40,46 +40,88 @@
         .user-card .messages {
             color: #faa61a;
         }
+        .error {
+            color: #f04747;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Classement des membres</h1>
-        <div id="leaderboard"></div>
+        <div id="leaderboard">
+            <p>Chargement en cours...</p>
+        </div>
     </div>
 
     <script>
-        // Fonction pour charger les données depuis data.json
+        // Configuration
+        const DATA_URL = 'https://raw.githubusercontent.com/TonPseudoGitHub/TonRepoGitHub/main/data.json';
+        
+        // Chargement des données
         async function loadData() {
             try {
-                // Si tu utilises GitHub Pages, mets l'URL brute de ton data.json
-                const response = await fetch('https://raw.githubusercontent.com/ton-pseudo/ton-repo/main/data.json');
+                console.log("Tentative de chargement depuis:", DATA_URL);
+                const response = await fetch(DATA_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log("Données reçues:", data);
+                
+                if (!data || !data.users) {
+                    throw new Error("Format de données invalide");
+                }
+                
                 displayLeaderboard(data.users);
             } catch (error) {
-                console.error("Erreur de chargement des données :", error);
-                document.getElementById("leaderboard").innerHTML = "<p>Impossible de charger les données.</p>";
+                console.error("Erreur:", error);
+                showError(`Erreur: ${error.message}`);
             }
         }
 
-        // Affiche le classement
+        // Affichage du classement
         function displayLeaderboard(users) {
             const leaderboard = document.getElementById("leaderboard");
-            const sortedUsers = Object.entries(users).sort((a, b) => b[1].xp - a[1].xp);
-
+            
+            if (Object.keys(users).length === 0) {
+                leaderboard.innerHTML = '<p class="error">Aucune donnée disponible</p>';
+                return;
+            }
+            
+            const sortedUsers = Object.entries(users)
+                .sort((a, b) => b[1].xp - a[1].xp)
+                .slice(0, 20); // Limite à 20 premiers
+            
             leaderboard.innerHTML = sortedUsers.map(([id, user], index) => `
                 <div class="user-card">
-                    <span>${index + 1}. ${user.username}</span>
+                    <span>${index + 1}. ${user.username || 'Utilisateur inconnu'}</span>
                     <div>
-                        <span class="xp">${user.xp} XP</span> | 
-                        <span class="messages">${user.messages} messages</span>
+                        <span class="xp">${user.xp || 0} XP</span> | 
+                        <span class="messages">${user.messages || 0} messages</span>
                     </div>
                 </div>
             `).join("");
         }
 
-        // Charge les données au démarrage
-        loadData();
+        // Affichage des erreurs
+        function showError(message) {
+            document.getElementById("leaderboard").innerHTML = `
+                <p class="error">${message}</p>
+                <p>Vérifiez:
+                <ul>
+                    <li>Que data.json existe bien à l'URL configurée</li>
+                    <li>Que le format des données est correct</li>
+                    <li>La console (F12) pour plus de détails</li>
+                </ul>
+                </p>
+            `;
+        }
+
+        // Lancement au chargement de la page
+        document.addEventListener('DOMContentLoaded', loadData);
     </script>
 </body>
 </html>
