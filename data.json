@@ -1,9 +1,13 @@
 {
-  "users": {
-    "123456789": {
-      "username": "Pseudo#1234",
-      "xp": 15,
-      "messages": 20
+    
+        "1121503310000705686": {
+            "username": "red_hos",
+            "xp": 1,
+            "messages": 1
+        },
+        "1277704445475688528": {
+            "username": "carlo086506",
+            "xp": 2,
+            "messages": 2
+        }
     }
-  }
-}
