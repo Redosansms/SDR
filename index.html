@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques Discord</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #36393f;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #2f3136;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #7289da;
+        }
+        .user-card {
+            background-color: #40444b;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-card .xp {
+            color: #43b581;
+            font-weight: bold;
+        }
+        .user-card .messages {
+            color: #faa61a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Classement des membres</h1>
+        <div id="leaderboard"></div>
+    </div>
+
+    <script>
+        // Fonction pour charger les données depuis data.json
+        async function loadData() {
+            try {
+                // Si tu utilises GitHub Pages, mets l'URL brute de ton data.json
+                const response = await fetch('https://raw.githubusercontent.com/ton-pseudo/ton-repo/main/data.json');
+                const data = await response.json();
+                displayLeaderboard(data.users);
+            } catch (error) {
+                console.error("Erreur de chargement des données :", error);
+                document.getElementById("leaderboard").innerHTML = "<p>Impossible de charger les données.</p>";
+            }
+        }
+
+        // Affiche le classement
+        function displayLeaderboard(users) {
+            const leaderboard = document.getElementById("leaderboard");
+            const sortedUsers = Object.entries(users).sort((a, b) => b[1].xp - a[1].xp);
+
+            leaderboard.innerHTML = sortedUsers.map(([id, user], index) => `
+                <div class="user-card">
+                    <span>${index + 1}. ${user.username}</span>
+                    <div>
+                        <span class="xp">${user.xp} XP</span> | 
+                        <span class="messages">${user.messages} messages</span>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        // Charge les données au démarrage
+        loadData();
+    </script>
+</body>
+</html>
