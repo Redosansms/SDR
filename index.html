@@ -6,7 +6,7 @@
     <title>Statistiques Discord</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             background-color: #36393f;
             color: white;
             margin: 0;
@@ -23,74 +23,134 @@
         h1 {
             text-align: center;
             color: #7289da;
+            margin-bottom: 30px;
         }
         .user-card {
             background-color: #40444b;
-            border-radius: 4px;
-            padding: 10px;
+            border-radius: 6px;
+            padding: 15px;
             margin: 10px 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: transform 0.2s;
         }
-        .user-card .xp {
+        .user-card:hover {
+            transform: translateY(-3px);
+            background-color: #484c52;
+        }
+        .user-rank {
+            font-weight: bold;
+            color: #7289da;
+            min-width: 30px;
+        }
+        .user-name {
+            flex-grow: 1;
+            margin: 0 15px;
+        }
+        .user-stats {
+            display: flex;
+            gap: 15px;
+        }
+        .xp {
             color: #43b581;
             font-weight: bold;
         }
-        .user-card .messages {
+        .messages {
             color: #faa61a;
+        }
+        .loading {
+            text-align: center;
+            font-style: italic;
+            color: #b9bbbe;
         }
         .error {
             color: #f04747;
             text-align: center;
+            padding: 20px;
+            background-color: rgba(240, 71, 71, 0.1);
+            border-radius: 6px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Classement des membres</h1>
+        <h1>🏆 Classement des Membres</h1>
         <div id="leaderboard">
-            <p>Chargement en cours...</p>
+            <p class="loading">Chargement en cours...</p>
         </div>
     </div>
 
     <script>
-  // Configuration - À MODIFIER !
-  const DATA_URL = 'https://github.com/Redosansms/SDR/blob/main/data.json';
+        // Configuration
+        const DATA_URL = 'https://raw.githubusercontent.com/TON_PSEUDO/TON_REPO/BRANCHE/data.json'; // À MODIFIER
+        
+        // Chargement des données
+        async function loadData() {
+            const leaderboard = document.getElementById("leaderboard");
+            
+            try {
+                console.log("🔄 Chargement des données depuis:", DATA_URL);
+                const response = await fetch(DATA_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log("📊 Données reçues:", data);
+                
+                if (!data || !data.users) {
+                    throw new Error("Format de données invalide - 'users' manquant");
+                }
+                
+                displayLeaderboard(data.users);
+                
+            } catch (error) {
+                console.error("❌ Erreur:", error);
+                showError(`Erreur de chargement: ${error.message}`);
+            }
+        }
 
-  async function loadData() {
-    try {
-      console.log("Chargement des données depuis:", DATA_URL);
-      const response = await fetch(DATA_URL);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Données reçues:", data);
-      
-      if (!data?.users) {
-        throw new Error("Format de données invalide");
-      }
-      
-      displayLeaderboard(data.users);
-    } catch (error) {
-      console.error("Erreur:", error);
-      document.getElementById("leaderboard").innerHTML = `
-        <p style="color: red">Erreur: ${error.message}</p>
-        <p>Vérifiez:
-        <ul>
-          <li>Que data.json existe bien</li>
-          <li>Que l'URL est correcte</li>
-          <li>La console (F12) pour plus de détails</li>
-        </ul>
-        </p>
-      `;
-    }
-  }
+        // Affichage du classement
+        function displayLeaderboard(users) {
+            const leaderboard = document.getElementById("leaderboard");
+            
+            if (!users || Object.keys(users).length === 0) {
+                leaderboard.innerHTML = '<p class="error">Aucune donnée disponible</p>';
+                return;
+            }
+            
+            // Tri par XP décroissant
+            const sortedUsers = Object.entries(users)
+                .sort((a, b) => b[1].xp - a[1].xp)
+                .slice(0, 25); // Limite à 25 résultats
+            
+            leaderboard.innerHTML = sortedUsers.map(([id, user], index) => `
+                <div class="user-card">
+                    <div class="user-rank">${index + 1}.</div>
+                    <div class="user-name">${user.username || 'Utilisateur inconnu'}</div>
+                    <div class="user-stats">
+                        <span class="xp">${user.xp || 0} XP</span>
+                        <span class="messages">${user.messages || 0} messages</span>
+                    </div>
+                </div>
+            `).join("");
+        }
 
-  // ... (le reste du code reste identique)
-</script>
+        // Affichage des erreurs
+        function showError(message) {
+            document.getElementById("leaderboard").innerHTML = `
+                <div class="error">
+                    <h3>⚠️ Erreur</h3>
+                    <p>${message}</p>
+                    <small>Vérifiez la console (F12) pour plus de détails</small>
+                </div>
+            `;
+        }
+
+        // Lancement au chargement de la page
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
 </body>
 </html>
